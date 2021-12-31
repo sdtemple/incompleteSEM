@@ -9,7 +9,10 @@
 #' @return matrix: infection times, removal times
 #'
 #' @export
-rgsem = function(beta, gamma, N, m = 1){
+rgsem = function(rates, N, m = 1){
+  
+  beta <- rates[1]
+  gamma <- rates[2]
 
   # initialize vectors
   t = 0

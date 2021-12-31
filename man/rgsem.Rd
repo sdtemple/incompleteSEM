@@ -4,14 +4,14 @@
 \alias{rgsem}
 \title{Simulate general stochastic epidemic model}
 \usage{
-rgsem(beta, gamma, N, m = 1)
+rgsem(rates, N, m = 1)
 }
 \arguments{
+\item{rates}{numeric vector: rates (beta, gamma)}
+
 \item{N}{integer: population size}
 
 \item{m}{integer: positive shape}
-
-\item{rates}{numeric vector: rates (beta, gamma)}
 }
 \value{
 matrix: infection times, removal times

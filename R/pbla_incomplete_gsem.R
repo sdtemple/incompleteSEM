@@ -467,13 +467,13 @@ pbla_incomplete_gsem <- function(rates, r, i, N, A = 1){
   # case for complete likelihood
   if(!any(is.na(i))){
     if(!any(is.na(r))){
-      return(likelihood_complete_gsem(r, i, beta, gamma, N))
+      return(likelihood_complete_gsem(rates, r, i, N))
     }
   }
   
   # case for partially observed likelihood
   if(all(is.na(i))){
-    return(pbla_partial_gsem(r, beta, gamma, N))
+    return(pbla_partial_gsem(rates, r, N))
   }
   
   # set up
