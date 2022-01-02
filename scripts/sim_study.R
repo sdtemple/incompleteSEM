@@ -6,43 +6,23 @@
 library(incompleteSEM)
 
 # epidemic model parameters
-N <- 400
-beta <- 1.8
+N <- 300
+beta <- 2.5
 gamma <- 1
 rates <- c(beta, gamma)
+init <- c(2,2)
 
 # simulation parameters
 simCt <- 0
-simSize <- 200
-simMin <- 10
-simP <- c(1/4,1/2,3/4)
+simSize <- 500
+simMin <- 30
+simP <- c(1/5,2/5,3/5,4/5)
 simQ <- 1
-simPrint <- 10
+simPrint <- 1
 
 # storage parameters
-simStore <- array(NA, dim = c(simSize,3,2+length(simP)))
+simStore <- array(NA, dim = c(simSize,2,2+length(simP)))
 simI <- rep(NA, simSize)
-
-# testing -----------------------------------------------------------------
-
-# epi <- rgsem(c(beta, gamma), N)
-# epi <- filter_gsem(epi)
-# 
-# likelihood_complete_gsem(rates, epi[,2], epi[,1], N)
-# mle_complete_gsem(epi[,2], epi[,1], N)
-# pbla_incomplete_gsem(rates, epi[,2], epi[,1], N)
-# 
-# pbla_partial_gsem(rates, epi[,2], N)
-# 
-# epi <- sort_gsem(epi)
-# 
-# epi2 <- impute_gsem(epi, 1/2)
-# pbla_incomplete_gsem(rates, epi2[,2], epi2[,1], N)
-# 
-# 
-# nlm(pbla_incomplete_gsem, c(1,1), r=epi2[,2], i=epi2[,1], N=N)$estimate
-# nlm(pbla_partial_gsem, c(1,1), r=epi2[,2], N=N)$estimate
-# mle_complete_gsem(epi[,2], epi[,1], N)
 
 # Simulation Study --------------------------------------------------------
 
@@ -63,13 +43,13 @@ while(simCt < simSize){
   r <- epi[,2]
   i <- epi[,1]
   simStore[simCt,1:2,1] <- mle_complete_gsem(r, i, N)
-  simStore[simCt,3,1] <- simStore[simCt,1,1] / simStore[simCt,2,1]
+  #simStore[simCt,3,1] <- simStore[simCt,1,1] / simStore[simCt,2,1]
   
   # partial epidemic
   epi <- sort_gsem(epi)
   r <- epi[,2]
-  simStore[simCt,1:2,2] <- nlm(pbla_partial_gsem, rates, r, N)$estimate
-  simStore[simCt,3,2] <- simStore[simCt,1,2] / simStore[simCt,2,2]
+  simStore[simCt,1:2,2] <- nlm(pbla_partial_gsem, init, r, N)$estimate
+  #simStore[simCt,3,2] <- simStore[simCt,1,2] / simStore[simCt,2,2]
   
   # incomplete epidemics
   for(j in 1:length(simP)){
@@ -78,8 +58,10 @@ while(simCt < simSize){
     iepi <- sort_gsem(iepi)
     r <- iepi[,2]
     i <- iepi[,1]
-    simStore[simCt,1:2,2+j] <- nlm(pbla_incomplete_gsem, rates, r, i, N)$estimate
-    simStore[simCt,3,2+j] <- simStore[simCt,1,2+j] / simStore[simCt,2,2+j]
+    simStore[simCt,1,2+j] <- nlm(pbla_incomplete_beta, init[1], r, i, N)$estimate
+    simStore[simCt,2,2+j] <- mle_gamma(r, i)[1]
+    # simStore[simCt,1:2,2+j] <- nlm(pbla_incomplete_gsem, init, r, i, N)$estimate
+    #simStore[simCt,3,2+j] <- simStore[simCt,1,2+j] / simStore[simCt,2,2+j]
   }
   
   # printing
@@ -90,4 +72,4 @@ while(simCt < simSize){
 fn <- paste('../data/ii-', beta, '-', gamma, '-', N, '-mat.rds', sep = '')
 saveRDS(simStore, fn)
 fn <- paste('../data/ii-', beta, '-', gamma, '-', N, '-vec.rds', sep = '')
-saveRDS(simI, vec)
+saveRDS(simI, fn)
