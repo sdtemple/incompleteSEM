@@ -685,3 +685,594 @@ pbla_incomplete_beta <- function(beta, r, i, N, A = 1){
   gamma <- mle_gamma(r, i)[1]
   return(pbla_incomplete_gsem(c(beta, gamma), r, i, N, A))
 }
+
+
+
+# em_incomplete_gsem <- function(r, i, N){
+#   
+#   ##### internal functions #####
+#   
+#   E_xj <- function(gammaj, rj, ij){
+#     rjij <- 1 / gammaj
+#     if(!is.na(rj)){
+#       if(!is.na(ij)){
+#         rjij <- rj - ij
+#       }
+#     }
+#     return(rjij)
+#   }
+#   
+#   # two cases : rk, rj, ik, ij ; rk, ik, ij
+#   E_tau_rk_ik_ij <- function(gammak, gammaj, rk, rj, ik, ij){
+#     return(min(rk, ij) - min(ik, ij))
+#   }
+#   
+#   
+#   # two cases : ik, ij ; rj, ik, ij
+#   E_tau_ik_ij <- function(gammak, gammaj, rk, rj, ik, ij){
+#     ijik <- 0
+#     if(ij < ik){
+#       ijik <- (ij - ik) * exp(- gammak * (ij - ik))
+#     }
+#     rkik <- 0
+#     if(ij > ik){
+#       rkik <- (1 - exp(- gammak * (ij - ik))) / gammak
+#     }
+#     return(rkik + ijik)
+#   }
+#   
+#   # two cases : rk, ij ; rk, rj, ij
+#   E_tau_rk_ij <- function(gammak, gammaj, rk, rj, ik, ij){
+#     ijik <- 0
+#     if(ij < rk){
+#       ijik <- exp(- gammak * (rk - ij)) / gammak
+#     }
+#     rkik <- 0
+#     if(ij > rk){
+#       rkik <- 1 / gammak
+#     }
+#     return(ijik + rkik)
+#   }
+#   
+#   # one case : rk, rj
+#   E_tau_rk_rj <- function(gammak, gammaj, rk, rj, ik, ij){
+#     if(rj < rk){
+#       ijik <- exp(- gammak * (rk - rj)) * gammaj / (gammaj + gammak) / gammak
+#     } else{
+#       ijik <- exp(- gammaj * (rj - rk)) * gammaj / (gammaj + gammak) / gammak
+#     }
+#     rkik <- 0
+#     if(rj > rk){
+#       rkik <- (1 - exp(- gammaj * (rj - rk))) / gammak
+#     }
+#     return(ijik + rkik)
+#   }
+#   
+#   # one case : rk, rj, ik
+#   E_tau_rk_rj_ik <- function(gammak, gammaj, rk, rj, ik, ij){
+#     ijik <- 0
+#     if(ik < rj){
+#       if(rj < rk){
+#         condprob <- (1 - exp(- gammaj * (rj - ik))) # probability of condition
+#         a <- 0
+#         b <- rj - ik
+#         pab <- pexp(b, gammaj) - pexp(a, gammaj)
+#         truncexp <- a * exp(- gammaj * a) - b * exp(- gammaj * b) + (exp(- gammaj * a) - exp(- gammaj * b)) / gammaj
+#         truncexp <- truncexp / pab
+#         condijik <- rj - ik - truncexp
+#         ijik <- condprob * condijik
+#         # development
+#         if(ijik < 0){
+#           print("error : ijik less than zero")
+#         }
+#       } else{
+#         condprob <- exp(- gammaj * (rj - rk)) * (1 - exp(- gammaj * (rk - ik)))
+#         a <- rj - rk
+#         b <- rj - ik
+#         pab <- pexp(b, gammaj) - pexp(a, gammaj)
+#         truncexp <- a * exp(- gammaj * a) - b * exp(- gammaj * b) + (exp(- gammaj * a) - exp(- gammaj * b)) / gammaj
+#         truncexp <- truncexp / pab
+#         condijik <- rj - ik - truncexp
+#         ijik <- condprob * condijik
+#         # development
+#         if(ijik < 0){
+#           print("error : ijik less than zero")
+#         }
+#       }
+#     }
+#     rkik <- 0
+#     if(rj > rk){
+#       rkik <- (1 - exp(- gammaj * (rj - rk))) * (rk - ik)
+#     }
+#     return(ijik + rkik)
+#   }
+#   
+#   # one case : rj, ik
+#   E_tau_rj_ik <- function(gammak, gammaj, rk, rj, ik, ij){
+#     ijik <- 0
+#     if(ik < rj){
+#       condprob <- sdprisk::phypoexp(rj - ik, rate = c(gammaj, gammak), lower.tail = F) # probability of condition
+#       a <- 0
+#       b <- rj - ik
+#       pab <- pexp(b, gammaj) - pexp(a, gammaj)
+#       truncexp <- a * exp(- gammaj * a) - b * exp(- gammaj * b) + (exp(- gammaj * a) - exp(- gammaj * b)) / gammaj
+#       truncexp <- truncexp / pab
+#       condijik <- rj - ik - truncexp
+#       ijik <- condprob * condijik
+#       # development
+#       if(ijik < 0){
+#         print("error : ijik less than zero")
+#       }
+#     }
+#     rkik <- 0
+#     if(ik < rj){
+#       b <- rj - ik
+#       gammajk <- gammaj - gammak
+#       termone <- ((1 - exp(- gammak * b)) / gammak - b * exp(- gammak * b)) * pexp(b, gammaj) # address
+#       termtwo <- ((1 - exp(- gammak * b)) / gammak - b * exp(- gammak * b)) * gammaj / gammajk
+#       termthree <- (1 - exp(- gammajk * b)) * gammaj / gammak / gammajk
+#       rkik <- termone + termtwo + termthree
+#       # development
+#       if(rkik < 0){
+#         print("error : rkik less than zero")
+#       }
+#     }
+#     return(ikij + rkik)
+#   }
+#   
+#   # switch function
+#   E_tau <- function(gammak, gammaj, rk, rj, ik, ij){
+#     if(is.na(ij)){
+#       if(is.na(ik)){
+#         return(E_tau_rk_rj(gammak, gammaj, rk, rj, ik, ij)) # one case
+#       }
+#       if(is.na(rk)){
+#         return(E_tau_rj_ik(gammak, gammaj, rk, rj, ik, ij)) # one case
+#       } else{
+#         return(E_tau_rk_rj_ik(gammak, gammaj, rk, rj, ik, ij)) # one case
+#       }
+#     }
+#     if(is.na(ik)){
+#       return(E_tau_rk_ij(gammak, gammaj, rk, rj, ik, ij)) # two cases
+#     }
+#     if(is.na(rk)){
+#       if(is.na(rj)){
+#         return(E_tau_ik_ij(gammak, gammaj, rk, rj, ik, ij)) # two cases
+#       }
+#     }
+#     return(E_tau_rk_ik_ij(gammak, gammaj, rk, rj, ik, ij)) # two cases
+#   }
+#   
+#   ##### main functions #####
+#   
+#   n <- length(r)
+#   
+#   ### first infected ###
+#   ralpha <- which.min(r)
+#   ialpha <- which.min(i)
+#   if(i[ialpha] < r[ralpha]){
+#     alpha <- ialpha
+#   } else{
+#     alpha <- ralpha
+#   }
+#   
+#   ### recovery rate mle ###
+#   gamma <- mle_gamma(r, i)[1]
+#   
+#   ### infection rate mle ###
+#   
+#   # storage method (development)
+#   x <- rep(0, n)
+#   tau <- matrix(0, nrow = n, ncol = n)
+#   for(j in (1:n)[-alpha]){
+#     rj <- r[j]
+#     ij <- i[j]
+#     gammaj <- gamma
+#     x[j] <- E_xj(gammaj, rj, ij)
+#     # if(is.na(rj)){
+#     #   x[j] <- rexp(1, gammaj)
+#     # } else if(is.na(ij)){
+#     #   x[j] <- rexp(1, gammaj)
+#     # } else{
+#     #   x[j] <- rj - ij
+#     # }
+#     for(k in (1:n)[-j]){
+#       rk <- r[k]
+#       ik <- i[k]
+#       gammak <- gamma
+#       tau[k,j] <- E_tau(gammak, gammaj, rk, rj, ik, ij)
+#     }
+#   }
+#   x[alpha] <- E_xj(gamma, r[alpha], i[alpha])
+#   # if(is.na(r[alpha])){
+#   #   x[alpha] <- rexp(1, gammaj)
+#   # } else if(is.na(i[alpha])){
+#   #   x[alpha] <- rexp(1, gammaj)
+#   # } else{
+#   #   x[alpha] <- r[alpha] - i[alpha]
+#   # }
+#   beta <- (n - 1) / (sum(tau) + (N - n) * sum(x))
+#   
+#   # update method (computation)
+#   # x <- 0
+#   # tau <- 0
+#   # for(j in (1:n)[-alpha]){
+#   #   rj <- r[j]
+#   #   ij <- i[j]
+#   #   gammaj <- gamma
+#   #   x <- x + E_xj(gammaj, rj, ij)
+#   #   for(k in (1:n)[-j]){
+#   #     rk <- r[k]
+#   #     ik <- i[k]
+#   #     gammak <- gamma
+#   #     tau <- tau + E_tau(gammak, gammaj, rk, rj, ik, ij)
+#   #   }
+#   # }
+#   # x <- x + E_xj(gamma, r[alpha], i[alpha])
+#   # beta <- (n - 1) / (tau + (N - n) * x)
+#   
+#   return(c(beta, gamma))
+# }
+
+em_incomplete_gsem <- function(r, i, N){
+  
+  ##### internal functions #####
+  
+  E_xj <- function(gammaj, rj, ij){
+    rjij <- 1 / gammaj
+    if(!is.na(rj)){
+      if(!is.na(ij)){
+        rjij <- rj - ij
+      }
+    }
+    return(rjij)
+  }
+  
+  # two cases : rk, rj, ik, ij ; rk, ik, ij
+  E_tau_rk_ik_ij <- function(gammak, gammaj, rk, rj, ik, ij){
+    return(min(rk, ij) - min(ik, ij))
+  }
+  
+  # two cases : ik, ij ; rj, ik, ij
+  E_tau_ik_ij <- function(gammak, gammaj, rk, rj, ik, ij){
+    ijik <- 0
+    if(ij > ik){
+      ijik <- (ij - ik) * exp(- gammak * (ij - ik))
+    }
+    rkik <- 0
+    if(ij > ik){
+      b <- ij - ik
+      pab <- pexp(b, gammak)
+      truncexp <- (1 - exp(- gammak * b)) / gammak - b * exp(- gammak * b)
+      truncexp <- truncexp / pab
+      rkik <- (1 - exp(- gammak * (ij - ik))) * truncexp
+    }
+    return(rkik + ijik)
+  }
+  
+  # two cases : rk, ij ; rk, rj, ij
+  E_tau_rk_ij <- function(gammak, gammaj, rk, rj, ik, ij){
+    ijik <- 0
+    if(ij < rk){
+      ijik <- exp(- gammak * (rk - ij)) / gammak
+    }
+    rkik <- 0
+    if(ij > rk){
+      rkik <- 1 / gammak
+    }
+    return(ijik + rkik)
+  }
+  
+  # one case : rk, rj
+  E_tau_rk_rj <- function(gammak, gammaj, rk, rj, ik, ij){
+    if(rj < rk){
+      ijik <- exp(- gammak * (rk - rj)) * gammaj / (gammaj + gammak) / gammak
+    } else{
+      ijik <- exp(- gammaj * (rj - rk)) * gammaj / (gammaj + gammak) / gammak
+    }
+    rkik <- 0
+    if(rj > rk){
+      rkik <- (1 - exp(- gammaj * (rj - rk))) / gammak
+    }
+    return(ijik + rkik)
+  }
+  
+  # one case : rk, rj, ik
+  E_tau_rk_rj_ik <- function(gammak, gammaj, rk, rj, ik, ij){
+    ijik <- 0
+    if(ik < rj){
+      if(rj < rk){
+        condprob <- (1 - exp(- gammaj * (rj - ik))) # probability of condition
+        a <- 0
+        b <- rj - ik
+        pab <- pexp(b, gammaj) - pexp(a, gammaj)
+        truncexp <- a * exp(- gammaj * a) - b * exp(- gammaj * b) + (exp(- gammaj * a) - exp(- gammaj * b)) / gammaj
+        truncexp <- truncexp / pab
+        condijik <- rj - ik - truncexp
+        ijik <- condprob * condijik
+        # development
+        if(ijik < 0){
+          print("error : ijik less than zero")
+        }
+      } else{
+        condprob <- exp(- gammaj * (rj - rk)) * (1 - exp(- gammaj * (rk - ik)))
+        a <- rj - rk
+        b <- rj - ik
+        pab <- pexp(b, gammaj) - pexp(a, gammaj)
+        truncexp <- a * exp(- gammaj * a) - b * exp(- gammaj * b) + (exp(- gammaj * a) - exp(- gammaj * b)) / gammaj
+        truncexp <- truncexp / pab
+        condijik <- rj - ik - truncexp
+        ijik <- condprob * condijik
+        # development
+        if(ijik < 0){
+          print("error : ijik less than zero")
+        }
+      }
+    }
+    rkik <- 0
+    if(rj > rk){
+      rkik <- (1 - exp(- gammaj * (rj - rk))) * (rk - ik)
+    }
+    return(ijik + rkik)
+  }
+  
+  # one case : rj, ik
+  E_tau_rj_ik <- function(gammak, gammaj, rk, rj, ik, ij){
+    ijik <- 0
+    if(ik < rj){
+      b <- rj - ik
+      gammajk <- gammaj - gammak
+      condprob <- (1 - exp(- b * gammak)) * pexp(b, gammaj)
+      if(gammajk == 0){
+        condprob <- condprob + gammaj * b
+      } else{
+        condprob <- condprob  + gammaj / gammajk * (1 - exp(- gammajk * b))
+      }
+      condprob <- condprob + exp(- gammak * (rj - ik)) * (1 - exp(- gammaj * (rj - ik))) # probability of condition
+      # condprob <- exp(- gammak * (rj - ik)) 
+      # condprob <- sdprisk::phypoexp(rj - ik, rate = c(gammaj, gammak), lower.tail = F) + exp(- gammak * (rj - ik)) # probability of condition
+      a <- 0
+      b <- rj - ik
+      pab <- pexp(b, gammaj) - pexp(a, gammaj)
+      truncexp <- a * exp(- gammaj * a) - b * exp(- gammaj * b) + (exp(- gammaj * a) - exp(- gammaj * b)) / gammaj
+      truncexp <- truncexp / pab
+      condijik <- rj - ik - truncexp
+      #print(condprob)
+      ijik <- condprob * condijik
+      #print(paste('ijik', ijik))
+      # development
+      if(ijik < 0){
+        print("error : ijik less than zero")
+      }
+    }
+    rkik <- 0
+    if(ik < rj){
+      b <- rj - ik
+      gammajk <- gammaj - gammak
+      if(gammajk == 0){
+        termone <- ((1 - exp(- gammak * b)) / gammak - b * exp(- gammak * b)) * pexp(b, gammaj)
+        termtwo <- gammaj * b * b / 2
+        termthree <- b
+      } else{
+        termone <- ((1 - exp(- gammak * b)) / gammak - b * exp(- gammak * b)) * pexp(b, gammaj)
+        termtwo <- ((1 - exp(- gammajk * b)) / gammajk - b * exp(- gammajk * b)) * gammaj / gammajk
+        termthree <- (1 - exp(- gammajk * b)) * gammaj / gammak / gammajk
+      }
+      rkik <- termone + termtwo + termthree
+      # development
+      if(rkik < 0){
+        print("error : rkik less than zero")
+      }
+    }
+    return(ijik + rkik)
+  }
+  
+  # switch function
+  E_tau <- function(gammak, gammaj, rk, rj, ik, ij){
+    if(is.na(ij)){
+      if(is.na(ik)){
+        return(E_tau_rk_rj(gammak, gammaj, rk, rj, ik, ij))
+      }
+    }
+    if(is.na(ij)){
+      if(is.na(rk)){
+        return(E_tau_rj_ik(gammak, gammaj, rk, rj, ik, ij))
+      }
+    }
+    if(is.na(ik)){
+      if(is.na(rj)){
+        return(E_tau_rk_ij(gammak, gammaj, rk, rj, ik, ij))
+      }
+    }
+    if(is.na(rk)){
+      if(is.na(rj)){
+        return(E_tau_ik_ij(gammak, gammaj, rk, rj, ik, ij))
+      }
+    }
+    if(is.na(rk)){
+      return(E_tau_ik_ij(gammak, gammaj, rk, rj, ik, ij))
+    }
+    if(is.na(rj)){
+      return(E_tau_rk_ik_ij(gammak, gammaj, rk, rj, ik, ij))
+    }
+    if(is.na(ik)){
+      return(E_tau_rk_ij(gammak, gammaj, rk, rj, ik, ij))
+    }
+    if(is.na(ij)){
+      return(E_tau_rk_rj_ik(gammak, gammaj, rk, rj, ik, ij))
+    }
+    return(E_tau_rk_rj_ik(gammak, gammaj, rk, rj, ik, ij))
+    
+    # if(is.na(ij)){
+    #   if(is.na(ik)){
+    #     return(E_tau_rk_rj(gammak, gammaj, rk, rj, ik, ij)) # one case
+    #   }
+    #   if(is.na(rk)){
+    #     return(E_tau_rj_ik(gammak, gammaj, rk, rj, ik, ij)) # one case
+    #   } else{
+    #     return(E_tau_rk_rj_ik(gammak, gammaj, rk, rj, ik, ij)) # one case
+    #   }
+    # }
+    # if(is.na(ik)){
+    #   return(E_tau_rk_ij(gammak, gammaj, rk, rj, ik, ij)) # two cases
+    # }
+    # if(is.na(rk)){
+    #   if(is.na(rj)){
+    #     return(E_tau_ik_ij(gammak, gammaj, rk, rj, ik, ij)) # two cases
+    #   }
+    # }
+    # return(E_tau_rk_ik_ij(gammak, gammaj, rk, rj, ik, ij)) # two cases
+  }
+  
+  ##### main functions #####
+  
+  n <- length(r)
+  
+  ### first infected ###
+  ralpha <- which.min(r)
+  ialpha <- which.min(i)
+  if(i[ialpha] < r[ralpha]){
+    alpha <- ialpha
+  } else{
+    alpha <- ralpha
+  }
+  
+  ### recovery rate mle ###
+  
+  gamma <- mle_gamma(r, i)[1]
+  # m <- sum( ind <- (!is.na(r)) * (!is.na(i)))
+  # gamma1 <- gamma + gamma / sqrt(m) * qnorm(0.975)
+  # gamma2 <- gamma - gamma / sqrt(m) * qnorm(0.975)
+  
+  # print(gamma1)
+  # print(gamma)
+  # print(gamma2)
+  
+  ### infection rate mle ###
+  
+  # print(gamma1)
+  
+  # # storage method (development)
+  # x <- rep(0, n)
+  # tau <- matrix(0, nrow = n, ncol = n)
+  # for(j in (1:n)[-alpha]){
+  #   rj <- r[j]
+  #   ij <- i[j]
+  #   gammaj <- gamma1
+  #   x[j] <- E_xj(gammaj, rj, ij)
+  #   # if(is.na(rj)){
+  #   #   x[j] <- rexp(1, gammaj)
+  #   # } else if(is.na(ij)){
+  #   #   x[j] <- rexp(1, gammaj)
+  #   # } else{
+  #   #   x[j] <- rj - ij
+  #   # }
+  #   for(k in (1:n)[-j]){
+  #     rk <- r[k]
+  #     ik <- i[k]
+  #     gammak <- gamma1
+  #     tau[k,j] <- E_tau(gammak, gammaj, rk, rj, ik, ij)
+  #   }
+  # }
+  # x[alpha] <- E_xj(gamma1, r[alpha], i[alpha])
+  # # # if(is.na(r[alpha])){
+  # # #   x[alpha] <- rexp(1, gammaj)
+  # # # } else if(is.na(i[alpha])){
+  # # #   x[alpha] <- rexp(1, gammaj)
+  # # # } else{
+  # # #   x[alpha] <- r[alpha] - i[alpha]
+  # # # }
+  # beta <- (n - 1) / (sum(tau) + (N - n) * sum(x))
+  # print(beta * N)
+  # 
+  # print(gamma)
+  
+  # # storage method (development)
+  # x <- rep(0, n)
+  # tau <- matrix(0, nrow = n, ncol = n)
+  # for(j in (1:n)[-alpha]){
+  #   rj <- r[j]
+  #   ij <- i[j]
+  #   gammaj <- gamma
+  #   x[j] <- E_xj(gammaj, rj, ij)
+  #   # if(is.na(rj)){
+  #   #   x[j] <- rexp(1, gammaj)
+  #   # } else if(is.na(ij)){
+  #   #   x[j] <- rexp(1, gammaj)
+  #   # } else{
+  #   #   x[j] <- rj - ij
+  #   # }
+  #   for(k in (1:n)[-j]){
+  #     rk <- r[k]
+  #     ik <- i[k]
+  #     gammak <- gamma
+  #     tau[k,j] <- E_tau(gammak, gammaj, rk, rj, ik, ij)
+  #   }
+  # }
+  # x[alpha] <- E_xj(gamma, r[alpha], i[alpha])
+  # # # if(is.na(r[alpha])){
+  # # #   x[alpha] <- rexp(1, gammaj)
+  # # # } else if(is.na(i[alpha])){
+  # # #   x[alpha] <- rexp(1, gammaj)
+  # # # } else{
+  # # #   x[alpha] <- r[alpha] - i[alpha]
+  # # # }
+  # beta <- (n - 1) / (sum(tau) + (N - n) * sum(x))
+  # print(beta * N)
+  # 
+  # print(gamma2)
+  
+  # # storage method (development)
+  # x <- rep(0, n)
+  # tau <- matrix(0, nrow = n, ncol = n)
+  # for(j in (1:n)[-alpha]){
+  #   rj <- r[j]
+  #   ij <- i[j]
+  #   gammaj <- gamma2
+  #   x[j] <- E_xj(gammaj, rj, ij)
+  #   # if(is.na(rj)){
+  #   #   x[j] <- rexp(1, gammaj)
+  #   # } else if(is.na(ij)){
+  #   #   x[j] <- rexp(1, gammaj)
+  #   # } else{
+  #   #   x[j] <- rj - ij
+  #   # }
+  #   for(k in (1:n)[-j]){
+  #     rk <- r[k]
+  #     ik <- i[k]
+  #     gammak <- gamma2
+  #     tau[k,j] <- E_tau(gammak, gammaj, rk, rj, ik, ij)
+  #   }
+  # }
+  # x[alpha] <- E_xj(gamma2, r[alpha], i[alpha])
+  # # # if(is.na(r[alpha])){
+  # # #   x[alpha] <- rexp(1, gammaj)
+  # # # } else if(is.na(i[alpha])){
+  # # #   x[alpha] <- rexp(1, gammaj)
+  # # # } else{
+  # # #   x[alpha] <- r[alpha] - i[alpha]
+  # # # }
+  # beta <- (n - 1) / (sum(tau) + (N - n) * sum(x))
+  # print(beta * N)
+  
+  # update method (computation)
+  # x <- 0
+  # tau <- 0
+  # for(j in (1:n)[-alpha]){
+  #   rj <- r[j]
+  #   ij <- i[j]
+  #   gammaj <- gamma
+  #   x <- x + E_xj(gammaj, rj, ij)
+  #   for(k in (1:n)[-j]){
+  #     rk <- r[k]
+  #     ik <- i[k]
+  #     gammak <- gamma
+  #     tau <- tau + E_tau(gammak, gammaj, rk, rj, ik, ij)
+  #   }
+  # }
+  # x <- x + E_xj(gamma, r[alpha], i[alpha])
+  # beta <- (n - 1) / (tau + (N - n) * x)
+  
+  #return(list(c(beta, gamma), tau))
+  return(c(beta, gamma))
+}
